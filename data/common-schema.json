@@ -1,0 +1,143 @@
+{
+    "id": "http://allen-stubberud.github.io/common-schema.json#",
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "description": "Library of common constructs",
+    "type": "object",
+    "definitions": {
+        "FuzzySet": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/FuzzyTile"
+                    }
+                },
+                "text": {
+                    "$ref": "#/definitions/FuzzyText"
+                },
+                "type": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "items",
+                "text",
+                "type"
+            ]
+        },
+        "FuzzyText": {
+            "type": "object",
+            "description": "Root text node",
+            "properties": {
+                "title": {
+                    "type": "object",
+                    "description": "text/title",
+                    "additionalProperties": {
+                        "type": "object",
+                        "description": "text/title/full",
+                        "additionalProperties": {
+                            "type": "object",
+                            "description": "text/title/full/program",
+                            "properties": {
+                                "default": {
+                                    "type": "object",
+                                    "description": "text/title/full/program/default",
+                                    "properties": {
+                                        "content": {
+                                            "type": "string"
+                                        },
+                                        "language": {
+                                            "type": "string"
+                                        },
+                                        "sourceEntity": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "content",
+                                        "language",
+                                        "sourceEntity"
+                                    ],
+                                    "additionalProperties": false
+                                }
+                            },
+                            "required": [
+                                "default"
+                            ]
+                        },
+                        "minProperties": 1
+                    },
+                    "minProperties": 1
+                }
+            },
+            "required": [
+                "title"
+            ]
+        },
+        "FuzzyTile": {
+            "type": "object",
+            "properties": {
+                "image": {
+                    "$ref": "#/definitions/ImageTable"
+                },
+                "text": {
+                    "$ref": "#/definitions/FuzzyText"
+                },
+                "type": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "image",
+                "text",
+                "type"
+            ]
+        },
+        "ImageTable": {
+            "type": "object",
+            "description": "Root image node",
+            "additionalProperties": {
+                "type": "object",
+                "description": "image/tile",
+                "additionalProperties": {
+                    "type": "object",
+                    "description": "image/tile/1.78",
+                    "additionalProperties": {
+                        "type": "object",
+                        "description": "image/tile/1.78/program",
+                        "additionalProperties": {
+                            "type": "object",
+                            "description": "image/tile/1.78/program/default",
+                            "properties": {
+                                "masterId": {
+                                    "type": "string"
+                                },
+                                "masterWidth": {
+                                    "type": "integer"
+                                },
+                                "masterHeight": {
+                                    "type": "integer"
+                                },
+                                "url": {
+                                    "type": "string"
+                                }
+                            },
+                            "required": [
+                                "masterId",
+                                "masterWidth",
+                                "masterHeight",
+                                "url"
+                            ],
+                            "additionalProperties": false
+                        },
+                        "required": [
+                            "default"
+                        ]
+                    },
+                    "minProperties": 1
+                }
+            }
+        }
+    }
+}

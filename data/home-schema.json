@@ -1,0 +1,98 @@
+{
+    "id": "http://allen-stubberud.github.io/homef-schema.json#",
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "description": "Schema for the home screen",
+    "type": "object",
+    "properties": {
+        "data": {
+            "type": "object",
+            "properties": {
+                "StandardCollection": {
+                    "type": "object",
+                    "properties": {
+                        "containers": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ShelfContainer"
+                            }
+                        },
+                        "text": {
+                            "$ref": "common-schema.json#/definitions/FuzzyText"
+                        },
+                        "type": {
+                            "type": "string",
+                            "pattern": "^StandardCollection$"
+                        }
+                    },
+                    "required": [
+                        "containers",
+                        "text",
+                        "type"
+                    ]
+                }
+            },
+            "additionalProperties": false,
+            "required": [
+                "StandardCollection"
+            ]
+        }
+    },
+    "required": [
+        "data"
+    ],
+    "additionalProperties": false,
+    "definitions": {
+        "FuzzySetRef": {
+            "type": "object",
+            "properties": {
+                "refId": {
+                    "type": "string"
+                },
+                "refType": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string",
+                    "pattern": "^SetRef$"
+                },
+                "text": {
+                    "$ref": "#common-schema.json/definitions/FuzzyText"
+                }
+            },
+            "required": [
+                "refId",
+                "refType",
+                "type",
+                "text"
+            ]
+        },
+        "ShelfContainer": {
+            "type": "object",
+            "properties": {
+                "set": {
+                    "oneOf": [
+                        {
+                            "$ref": "common-schema.json#/definitions/FuzzySet"
+                        },
+                        {
+                            "$ref": "#/definitions/FuzzySetRef"
+                        }
+                    ]
+                },
+                "type": {
+                    "type": "string",
+                    "pattern": "^ShelfContainer$"
+                },
+                "style": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "required": [
+                "set",
+                "type",
+                "style"
+            ]
+        }
+    }
+}
