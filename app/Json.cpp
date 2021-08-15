@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstring>
+#include <optional>
 #include <sstream>
 #include <stdexcept>
 #include <string_view>
