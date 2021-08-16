@@ -242,36 +242,35 @@ ReadFuzzySetRef(const rapidjson::Value& aValue)
 
 }
 
-ApiFuzzySet
-ApiReadRef(std::istream& aInput)
+std::variant<ApiHome, ApiFuzzySet>
+ReadApi(std::istream& aInput)
 {
-  const auto& schema = *gProvider.GetRemoteDocument("ref-schema.json", 0);
   rapidjson::IStreamWrapper wrapper(aInput);
   rapidjson::Document dom = ReadJsonDocument(wrapper);
-  ValidateJsonDocument(dom, schema);
-  return ReadFuzzySet(dom["data"].MemberBegin()->value);
-}
 
-ApiHome
-ApiReadHome(std::istream& aInput)
-{
-  const auto& schema = *gProvider.GetRemoteDocument("home-schema.json", 0);
-  rapidjson::IStreamWrapper wrapper(aInput);
-  rapidjson::Document dom = ReadJsonDocument(wrapper);
-  ValidateJsonDocument(dom, schema);
+  auto data = dom.FindMember("data");
+  if (data != dom.MemberEnd() && data->value.MemberCount() > 0) {
+    const rapidjson::Value& key = data->value.MemberBegin()->name;
 
-  ApiHome result;
-  const rapidjson::Value& collection = dom["data"].MemberBegin()->value;
-  result.Text = ReadFuzzyText(collection["text"]);
+    if (strcmp(key.GetString(), "StandardCollection") == 0) {
+      ApiHome result;
+      const rapidjson::Value& collection = dom["data"].MemberBegin()->value;
+      result.Text = ReadFuzzyText(collection["text"]);
 
-  for (const auto& container : collection["containers"].GetArray()) {
-    const rapidjson::Value& set = container["set"];
+      for (const auto& container : collection["containers"].GetArray()) {
+        const rapidjson::Value& set = container["set"];
 
-    if (strcmp(set["type"].GetString(), "SetRef") == 0)
-      result.Containers.emplace_back(ReadFuzzySetRef(set));
-    else
-      result.Containers.emplace_back(ReadFuzzySet(set));
+        if (strcmp(set["type"].GetString(), "SetRef") == 0)
+          result.Containers.emplace_back(ReadFuzzySetRef(set));
+        else
+          result.Containers.emplace_back(ReadFuzzySet(set));
+      }
+
+      return result;
+    }
   }
 
-  return result;
+  const auto& schema = *gProvider.GetRemoteDocument("ref-schema.json", 0);
+  ValidateJsonDocument(dom, schema);
+  return ReadFuzzySet(dom["data"].MemberBegin()->value);
 }

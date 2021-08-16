@@ -19,10 +19,10 @@ find_package(Threads REQUIRED)
 
 add_executable(
   ${PROJECT_NAME}
+  app/Decode.cpp
+  app/Decode.hpp
   app/Download.cpp
   app/Download.hpp
-  app/Image.cpp
-  app/Image.hpp
   app/Json.cpp
   app/Json.hpp
   app/Main.cpp

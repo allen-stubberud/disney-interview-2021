@@ -109,8 +109,8 @@ public:
 struct DownloadTask
 {
   std::string ResourceLink;
-  Signal<const std::string&> Failed;
-  Signal<std::unique_ptr<std::istream>&> Finished;
+  Signal<std::string> Failed;
+  Signal<std::unique_ptr<std::istream>> Finished;
 };
 
 class DownloadThread
@@ -189,7 +189,7 @@ private:
 
     InvokeAsync([stream, signal]() {
       std::unique_ptr<std::istream> ptr(stream);
-      signal->Finished.Notify(ptr);
+      signal->Finished.Notify(std::move(ptr));
       delete signal;
     });
   }
@@ -211,7 +211,7 @@ private:
         curl_easy_getinfo(msg->easy_handle, CURLINFO_PRIVATE, &state);
 
         if (msg->data.result == CURLE_OK) {
-          long code;
+          long code, protocol;
           curl_easy_getinfo(msg->easy_handle, CURLINFO_RESPONSE_CODE, &code);
 
           if (code == 200)
@@ -284,7 +284,7 @@ DownloadThread* gThread = nullptr;
 }
 
 void
-Download::ForkThread()
+ForkDownloadThread()
 {
   assert(!gThread);
 
@@ -295,7 +295,7 @@ Download::ForkThread()
 }
 
 void
-Download::JoinThread()
+JoinDownloadThread()
 {
   assert(gThread);
   delete gThread;
@@ -325,11 +325,30 @@ Download::GetResourceLink()
   return mResourceLink;
 }
 
+const std::string&
+Download::GetErrorMessage() const
+{
+  return mErrorMessage;
+}
+
+const std::unique_ptr<std::istream>&
+Download::GetInputStream() const
+{
+  return mInputStream;
+}
+
+std::unique_ptr<std::istream>&
+Download::GetInputStream()
+{
+  return mInputStream;
+}
+
 void
 Download::Launch()
 {
   if (mResourceLink.empty()) {
-    Failed.Notify("Resource link is empty");
+    mErrorMessage = "Resource link is empty";
+    Failed.Notify();
   } else {
     auto task = std::make_unique<DownloadTask>();
     auto it1 = mConnectionList.emplace(mConnectionList.end());
@@ -338,18 +357,20 @@ Download::Launch()
 
     *it1 = task->Failed.Connect(
       // The main loop will delete the signal.
-      [this, it1, it2](const std::string& aMessage) {
+      [this, it1, it2](std::string aMessage) {
         mConnectionList.erase(it1);
         mConnectionList.erase(it2);
-        Failed.Notify(aMessage);
+        mErrorMessage = std::move(aMessage);
+        Failed.Notify();
       });
 
     *it2 = task->Finished.Connect(
       // The main loop will delete the signal.
-      [this, it1, it2](std::unique_ptr<std::istream>& aFile) {
+      [this, it1, it2](std::unique_ptr<std::istream> aFile) {
         mConnectionList.erase(it1);
         mConnectionList.erase(it2);
-        Finished.Notify(aFile);
+        mInputStream = std::move(aFile);
+        Finished.Notify();
       });
 
     gThread->Enqueue(std::move(task));

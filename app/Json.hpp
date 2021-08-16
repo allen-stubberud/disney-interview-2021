@@ -84,12 +84,7 @@ struct ApiHome
   std::vector<std::variant<ApiFuzzySet, ApiFuzzySetRef>> Containers;
 };
 
-/// Read the remote sets referenced by the home screen.
-ApiFuzzySet
-ApiReadRef(std::istream& aInput);
-
-/// Read the home screen API.
-ApiHome
-ApiReadHome(std::istream& aInput);
+std::variant<ApiHome, ApiFuzzySet>
+ReadApi(std::istream& aInput);
 
 #endif

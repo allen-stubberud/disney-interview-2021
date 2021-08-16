@@ -6,8 +6,8 @@
 #include <GL/glew.h>
 #include <SDL.h>
 
+#include "Decode.hpp"
 #include "Download.hpp"
-#include "Image.hpp"
 
 namespace {
 
@@ -71,11 +71,11 @@ main(int argc, char** argv)
     return 1;
   }
 
-  Download::ForkThread();
-  Image::ForkThread();
+  ForkDecodeThread();
+  ForkDownloadThread();
   MainLoop(window);
-  Download::JoinThread();
-  Image::JoinThread();
+  JoinDecodeThread();
+  JoinDownloadThread();
 
   SDL_GL_DeleteContext(context);
   SDL_DestroyWindow(window);
