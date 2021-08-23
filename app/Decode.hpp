@@ -31,24 +31,39 @@ class ApiQuery
   std::variant<ApiHome, ApiFuzzySet> mResult;
 
 public:
+  /// Emitted when the download or parser fails.
   Signal<> Failed;
+  /// Emitted when the parsing is finished.
   Signal<> Finished;
 
+  /// Initialize without any inputs.
   ApiQuery() = default;
+  /// Initialize with the given resource link.
   explicit ApiQuery(std::string aResourceLink);
+  /// Initialize with the given file data.
   explicit ApiQuery(std::unique_ptr<std::istream> aInput);
+
   ApiQuery(const ApiQuery& aOther) = delete;
   ApiQuery& operator=(const ApiQuery& aOther) = delete;
+
+  /// Cancel the operation; observers will no longer be notified.
   ~ApiQuery();
 
+  /// Do not use this after the download is launched.
   const std::string& GetResourceLink() const;
+  /// Do not use this after the download is launched.
   std::string& GetResourceLink();
 
+  /// Do not use this after the download is launched.
   const std::unique_ptr<std::istream>& GetInputStream() const;
+  /// Do not use this after the download is launched.
   std::unique_ptr<std::istream>& GetInputStream();
 
+  /// Error string from the downloader or parser.
   const std::string& GetErrorMessage() const;
+  /// Buffer containing the full API response.
   const decltype(mResult)& GetResult() const;
+  /// Buffer containing the full API response.
   decltype(mResult)& GetResult();
 
   /// Enqueue the operation on another thread.
@@ -81,24 +96,39 @@ class Image
   std::unique_ptr<SDL_Surface, detail::Decode::ImageDeleter> mSurface;
 
 public:
+  /// Emitted when the download or decoder fails.
   Signal<> Failed;
+  /// Emitted when the image decoder is finished.
   Signal<> Finished;
 
+  /// Initialize without any inputs.
   Image() = default;
+  /// Initialize with the given resource link.
   explicit Image(std::string aResourceLink);
+  /// Initialize with the given file data.
   explicit Image(std::unique_ptr<std::istream> aInput);
+
   Image(const Image& aOther) = delete;
   Image& operator=(const Image& aOther) = delete;
+
+  /// Cancel the operation; observers will no longer be notified.
   ~Image();
 
+  /// Do not use this after the download is launched.
   const std::string& GetResourceLink() const;
+  /// Do not use this after the download is launched.
   std::string& GetResourceLink();
 
+  /// Do not use this after the download is launched.
   const std::unique_ptr<std::istream>& GetInputStream() const;
+  /// Do not use this after the download is launched.
   std::unique_ptr<std::istream>& GetInputStream();
 
+  /// Error string from the downloader or decoder.
   const std::string& GetErrorMessage() const;
+  /// SDL surface containing metrics and pixel data.
   const decltype(mSurface)& GetSurface() const;
+  /// SDL surface containing metrics and pixel data.
   decltype(mSurface)& GetSurface();
 
   /// Enqueue the operation on another thread.
@@ -109,8 +139,10 @@ private:
   void OnDownloadFinished(std::unique_ptr<std::istream> aInput);
 };
 
+/// Launch the worker thread for API queries and image loads.
 void
 ForkDecodeThread();
+/// Wait for the worker thread to exit.
 void
 JoinDecodeThread();
 
