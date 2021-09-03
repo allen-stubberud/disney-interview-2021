@@ -58,11 +58,4 @@ public:
   void Launch();
 };
 
-/// Initialize CURL and launch the worker thread.
-void
-ForkDownloadThread();
-/// Wait for the worker thread to exit and clean up CURL.
-void
-JoinDownloadThread();
-
 #endif

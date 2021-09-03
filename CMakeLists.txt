@@ -9,6 +9,7 @@ list(PREPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 # These dependencies must be installed on the system.
 find_package(CURL REQUIRED)
 find_package(GLEW REQUIRED)
+find_package(glm REQUIRED)
 find_package(OpenGL REQUIRED)
 find_package(RapidJSON REQUIRED)
 find_package(SDL2 REQUIRED)
@@ -27,6 +28,8 @@ add_executable(
   app/Json.hpp
   app/Main.cpp
   app/Main.hpp
+  app/Render.cpp
+  app/Render.hpp
   app/Signal.cpp
   app/Signal.hpp
   )
@@ -48,6 +51,7 @@ endif ()
 target_link_libraries(
   ${PROJECT_NAME}
   CURL::libcurl
+  glm
   SDL2::SDL2_image
   SDL2::SDL2_ttf
   SDL2::SDL2main SDL2::SDL2
@@ -101,8 +105,10 @@ endfunction()
 AddResources(
   TARGET ${PROJECT_NAME}
   INPUTS
+    data/CascadiaCode-Regular.ttf
     data/common-schema.json
     data/home-schema.json
     data/meta-schema.json
     data/ref-schema.json
+    data/test-pattern-152459_640.png
   )

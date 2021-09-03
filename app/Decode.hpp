@@ -139,11 +139,4 @@ private:
   void OnDownloadFinished(std::unique_ptr<std::istream> aInput);
 };
 
-/// Launch the worker thread for API queries and image loads.
-void
-ForkDecodeThread();
-/// Wait for the worker thread to exit.
-void
-JoinDecodeThread();
-
 #endif
