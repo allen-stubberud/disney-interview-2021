@@ -124,6 +124,12 @@ public:
       });
   }
 
+  void SetDepth(float aNewValue)
+  {
+    for (GeomNode::Vertex& vert : mRootNode.GetGeometry())
+      vert.Location.z = aNewValue;
+  }
+
 private:
   void OnVisited()
   {
@@ -163,6 +169,8 @@ class RowWidget
   std::optional<AsyncQuery> mQuery;
   sigc::connection mQueryTrigger;
 
+  float mWindowStart;
+  std::optional<int> mSelection;
   std::vector<std::unique_ptr<TileWidget>> mTiles;
 
 public:
@@ -188,12 +196,11 @@ public:
 
   const RenderNode& GetNode() const { return mRootNode; }
   RenderNode& GetNode() { return mRootNode; }
+  decltype(mTiles)::size_type GetCount() const { return mTiles.size(); }
 
   void Layout(const SDL_FRect& aBounds)
   {
     mBounds = aBounds;
-    mRootNode.SetTranslate({ aBounds.x, aBounds.y });
-
     float x = 0.0f;
     float y = 0.0f;
     float h = aBounds.h;
@@ -203,12 +210,38 @@ public:
     y += 0.03f + Spacing;
     h -= 0.03f + Spacing;
 
-    for (std::unique_ptr<TileWidget>& tile : mTiles) {
-      float ratio = tile->GetImageAspectRatio();
+    for (auto it = mTiles.begin(); it != mTiles.end(); ++it) {
+      float ratio = it->get()->GetImageAspectRatio();
       SDL_FRect bounds{ x, y, h * ratio, h };
-      tile->Layout(bounds);
       x += bounds.w + Spacing;
+
+      if (mSelection && it - mTiles.begin() == mSelection.value()) {
+        // Slide the window so this tile is always visible.
+        if (bounds.x + bounds.w > mWindowStart + aBounds.w)
+          mWindowStart = bounds.x + bounds.w - aBounds.w;
+        else if (bounds.x < mWindowStart)
+          mWindowStart = bounds.x;
+
+        // This can happen after window calculations.
+        float xm = (bounds.x + bounds.x + bounds.w) / 2.0f;
+        float ym = (bounds.y + bounds.y + bounds.h) / 2.0f;
+        constexpr float coeff = 1.3f;
+        bounds.x = xm + (bounds.x - xm) * coeff;
+        bounds.y = ym + (bounds.y - ym) * coeff;
+        bounds.w *= coeff;
+        bounds.h *= coeff;
+
+        // Hack for depth testing.
+        it->get()->SetDepth(-1.0f);
+      } else {
+        // Hack for depth testing.
+        it->get()->SetDepth(+0.0f);
+      }
+
+      it->get()->Layout(bounds);
     }
+
+    mRootNode.SetTranslate({ aBounds.x - mWindowStart, aBounds.y });
   }
 
   void RequestAspectRatio(float aRatio)
@@ -217,8 +250,20 @@ public:
       tile->RequestAspectRatio(aRatio);
   }
 
+  void Select(std::optional<int> aNewValue)
+  {
+    if (mSelection != aNewValue) {
+      mSelection = aNewValue;
+      Layout(mBounds);
+    }
+  }
+
 private:
-  RowWidget() { mRootNode.AddChild(mTitle.GetNode()); }
+  RowWidget()
+    : mWindowStart(0.0f)
+  {
+    mRootNode.AddChild(mTitle.GetNode());
+  }
 
   void OnQueryFinished(ApiFuzzySet aModel)
   {
@@ -266,10 +311,15 @@ class HomeWidget
   TextWidget mTitle;
 
   std::optional<AsyncQuery> mQuery;
+
+  float mWindowStart;
+  std::optional<int> mSelectRow;
+  std::vector<int> mSelectColumn;
   std::vector<std::unique_ptr<RowWidget>> mRows;
 
 public:
   HomeWidget()
+    : mWindowStart(0.0f)
   {
     mRootNode.AddChild(mContentClip);
     mRootNode.AddChild(mTitle.GetNode());
@@ -293,6 +343,47 @@ public:
   const RenderNode& GetNode() const { return mRootNode; }
   RenderNode& GetNode() { return mRootNode; }
 
+  void Event(const SDL_KeyboardEvent& aEvent)
+  {
+    if (aEvent.type != SDL_KEYDOWN)
+      return;
+    else if (mRows.empty())
+      return;
+
+    if (mSelectRow) {
+      if (aEvent.keysym.sym == SDLK_LEFT) {
+        int row = mSelectRow.value();
+        int max = mRows[row]->GetCount();
+        int col = std::clamp(mSelectColumn[row] - 1, 0, max - 1);
+        mRows[row]->Select(col);
+        mSelectColumn[row] = col;
+      } else if (aEvent.keysym.sym == SDLK_RIGHT) {
+        int row = mSelectRow.value();
+        int max = mRows[row]->GetCount();
+        int col = std::clamp(mSelectColumn[row] + 1, 0, max - 1);
+        mRows[row]->Select(col);
+        mSelectColumn[row] = col;
+      } else if (aEvent.keysym.sym == SDLK_DOWN) {
+        int idx = mSelectRow.value();
+        mRows[idx]->Select(std::nullopt);
+        idx = std::clamp(idx + 1, 0, static_cast<int>(mRows.size()) - 1);
+        mRows[idx]->Select(mSelectColumn[idx]);
+        mSelectRow = idx;
+      } else if (aEvent.keysym.sym == SDLK_UP) {
+        int idx = mSelectRow.value();
+        mRows[idx]->Select(std::nullopt);
+        idx = std::clamp(idx - 1, 0, static_cast<int>(mRows.size()) - 1);
+        mRows[idx]->Select(mSelectColumn[idx]);
+        mSelectRow = idx;
+      }
+
+      Layout(mBounds);
+    } else {
+      mSelectRow.emplace(0);
+      mRows[0]->Select(0);
+    }
+  }
+
   void Layout(const SDL_FRect& aBounds)
   {
     mBounds = aBounds;
@@ -307,19 +398,34 @@ public:
     h -= 0.05f + Spacing;
 
     mContentClip.SetTranslate({ x, y });
-    mContentClip.SetClipRect({ 0.0f, 0.0f, w, h });
+    {
+      // I spend eight hours on clip node only to not use it!
+      mContentClip.SetClipRect({ -10.0f, -10.0f, +20.0f, +20.0f });
+      // mContentClip.SetClipRect({ 0.0f, 0.0f, w, h });
+    }
     x = 0.0f; // move inside of the clip node
     y = 0.0f; // move inside of the clip node
     w -= Spacing + Spacing;
     h -= Spacing + Spacing;
 
     //
-    for (std::unique_ptr<RowWidget>& row : mRows) {
+    for (auto it = mRows.begin(); it != mRows.end(); ++it) {
       SDL_FRect bounds{ x, y, w, 0.15f };
-      row->Layout(bounds);
-      row->RequestAspectRatio(aBounds.w / aBounds.h);
+      it->get()->Layout(bounds);
+      it->get()->RequestAspectRatio(aBounds.w / aBounds.h);
+
+      if (mSelectRow && it - mRows.begin() == mSelectRow.value()) {
+        // Slide the window so this row is always visible.
+        if (bounds.y + bounds.h > mWindowStart + h)
+          mWindowStart = bounds.y + bounds.h - h;
+        else if (bounds.y < mWindowStart)
+          mWindowStart = bounds.y;
+      }
+
       y += bounds.h + Spacing;
     }
+
+    mRootNode.SetTranslate({ 0.0f, -mWindowStart });
   }
 
 private:
@@ -337,6 +443,9 @@ private:
 
       mContentNode.AddChild(mRows.back()->GetNode());
     }
+
+    mSelectRow.reset();
+    mSelectColumn.resize(mRows.size(), 0);
 
     Layout(mBounds);
   }
@@ -366,7 +475,7 @@ public:
   {
     glClearStencil(0);
     glClearColor(0.f, 0.f, 0.f, 1.f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
@@ -386,12 +495,16 @@ public:
         glScalef(1.0f, aspect, 1.0f);
     }
 
-    Render(mHome.GetNode(), true);
+    Render(mHome.GetNode(), false);
   }
 
   void Event(const SDL_Event& aEvent)
   {
     switch (aEvent.type) {
+      case SDL_KEYDOWN:
+      case SDL_KEYUP:
+        mHome.Event(aEvent.key);
+        break;
       case SDL_WINDOWEVENT:
         Event(aEvent.window);
         break;

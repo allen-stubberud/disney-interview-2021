@@ -518,16 +518,16 @@ GeomNode::GeomNode()
   tmp.Color = { 0.7f, 0.0f, 0.7f, 1.0f };
 
   // Default geometry is the unit square.
-  tmp.Location = { 0.0f, 0.0f };
+  tmp.Location = { 0.0f, 0.0f, 0.0f };
   tmp.TexCoord = { 0.0f, 0.0f };
   mGeometry.push_back(tmp);
-  tmp.Location = { 1.0f, 0.0f };
+  tmp.Location = { 1.0f, 0.0f, 0.0f };
   tmp.TexCoord = { 1.0f, 0.0f };
   mGeometry.push_back(tmp);
-  tmp.Location = { 1.0f, 1.0f };
+  tmp.Location = { 1.0f, 1.0f, 0.0f };
   tmp.TexCoord = { 1.0f, 1.0f };
   mGeometry.push_back(tmp);
-  tmp.Location = { 0.0f, 1.0f };
+  tmp.Location = { 0.0f, 1.0f, 0.0f };
   tmp.TexCoord = { 0.0f, 1.0f };
   mGeometry.push_back(tmp);
 }
@@ -759,7 +759,7 @@ MergeState(const RenderNode& aNode, int& aLayer)
   const glm::vec2& translate = aNode.GetTranslate();
   glTranslatef(translate.x, translate.y, 0.0f);
   const glm::vec2& scale = aNode.GetScale();
-  glScalef(scale.x, scale.y, 0.0f);
+  glScalef(scale.x, scale.y, 1.0f);
 
   // Additional special states for some nodes.
   if (aNode.GetType() == ClipNode::TypeId) {
@@ -803,6 +803,7 @@ VisitState(const RenderNode& aNode)
       return;
 
     glPushAttrib(GL_ENABLE_BIT | GL_TEXTURE_BIT);
+    glEnable(GL_DEPTH_TEST);
 
     if (ref.GetTexture()) {
       glEnable(GL_TEXTURE_2D);
@@ -815,7 +816,7 @@ VisitState(const RenderNode& aNode)
     for (const GeomNode::Vertex& elem : ref.GetGeometry()) {
       glColor4fv(glm::value_ptr(elem.Color));
       glTexCoord2fv(glm::value_ptr(elem.TexCoord));
-      glVertex2fv(glm::value_ptr(elem.Location));
+      glVertex3fv(glm::value_ptr(elem.Location));
     }
 
     glEnd();

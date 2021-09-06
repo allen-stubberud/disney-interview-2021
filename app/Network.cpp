@@ -232,6 +232,7 @@ private:
       curl_easy_setopt(easy, CURLOPT_PRIVATE, state);
       curl_easy_setopt(easy, CURLOPT_WRITEDATA, state);
       curl_easy_setopt(easy, CURLOPT_WRITEFUNCTION, WriteProc);
+      curl_easy_setopt(easy, CURLOPT_SSL_OPTIONS, CURLSSLOPT_NATIVE_CA);
 
       auto url = state->Task->ResourceLink.c_str();
       curl_easy_setopt(easy, CURLOPT_URL, url);
