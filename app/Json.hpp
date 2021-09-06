@@ -65,7 +65,7 @@ struct ApiFuzzySet
 };
 
 /// Rough translation of references to remote sets.
-struct ApiFuzzySetRef
+struct ApiSetRef
 {
   /// Do not use this; there are bugs in the data itself.
   ApiFuzzyText Text;
@@ -81,10 +81,13 @@ struct ApiHome
   /// Name of the home screen.
   ApiFuzzyText Text;
   /// Only some of the rows are provided up-front.
-  std::vector<std::variant<ApiFuzzySet, ApiFuzzySetRef>> Containers;
+  std::vector<std::variant<ApiFuzzySet, ApiSetRef>> Containers;
 };
 
-std::variant<ApiHome, ApiFuzzySet>
-ReadApi(std::istream& aInput);
+ApiHome
+ReadApiHome(std::istream& aInput);
+
+ApiFuzzySet
+ReadApiFuzzySet(std::istream& aInput);
 
 #endif

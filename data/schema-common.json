@@ -1,5 +1,5 @@
 {
-    "id": "http://allen-stubberud.github.io/common-schema.json#",
+    "id": "http://allen-stubberud.github.io/schema-common.json#",
     "$schema": "http://json-schema.org/draft-04/schema#",
     "description": "Library of common constructs",
     "type": "object",

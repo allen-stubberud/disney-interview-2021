@@ -1,14 +1,11 @@
 #include "Json.hpp"
 
-#include <cstddef>
-#include <cstring>
 #include <optional>
 #include <sstream>
 #include <stdexcept>
-#include <string_view>
 #include <unordered_map>
-#include <utility>
 
+#include <cmrc/cmrc.hpp>
 #include <rapidjson/document.h>
 #include <rapidjson/error/en.h>
 #include <rapidjson/istreamwrapper.h>
@@ -16,14 +13,11 @@
 #include <rapidjson/schema.h>
 #include <rapidjson/stringbuffer.h>
 
-#define RESOURCE(x)                                                            \
-  extern const unsigned char x##_data[];                                       \
-  extern const size_t x##_size;
+CMRC_DECLARE(rc);
 
-RESOURCE(common_schema_json)
-RESOURCE(home_schema_json)
-RESOURCE(meta_schema_json)
-RESOURCE(ref_schema_json)
+//===========================================================================//
+//=== JSON ==================================================================//
+//===========================================================================//
 
 namespace {
 
@@ -68,18 +62,18 @@ ValidateJsonDocument(const rapidjson::Value& aDocument,
   }
 }
 
-class RemoteSchemaProvider : public rapidjson::IRemoteSchemaDocumentProvider
+class SchemaProvider : public rapidjson::IRemoteSchemaDocumentProvider
 {
   std::optional<rapidjson::SchemaDocument> mMetaSchema;
   std::unordered_map<std::string, rapidjson::SchemaDocument> mTable;
 
 public:
-  RemoteSchemaProvider()
+  SchemaProvider()
   {
-    rapidjson::MemoryStream wrapper(
-      reinterpret_cast<const char*>(meta_schema_json_data),
-      meta_schema_json_size);
+    auto fs = cmrc::rc::get_filesystem();
+    auto buffer = fs.open("schema-meta.json");
 
+    rapidjson::MemoryStream wrapper(buffer.begin(), buffer.size());
     rapidjson::Document dom = ReadJsonDocument(wrapper);
     mMetaSchema.emplace(dom);
     ValidateJsonDocument(dom, mMetaSchema.value());
@@ -108,54 +102,37 @@ public:
 
     // Insert new elements into the table if required.
     if (iter == mTable.end()) {
-      const static struct
-      {
-        const char* Key;
-        const char* Data;
-        size_t Length;
-      } ResourceTable[] = {
-        {
-          "common-schema.json",
-          reinterpret_cast<const char*>(common_schema_json_data),
-          common_schema_json_size,
-        },
-        {
-          "home-schema.json",
-          reinterpret_cast<const char*>(home_schema_json_data),
-          home_schema_json_size,
-        },
-        {
-          "ref-schema.json",
-          reinterpret_cast<const char*>(ref_schema_json_data),
-          ref_schema_json_size,
-        },
-      };
+      auto fs = cmrc::rc::get_filesystem();
+      auto buffer = fs.open(key);
 
-      for (auto ent : ResourceTable)
-        if (ent.Key == key) {
-          rapidjson::MemoryStream wrapper(ent.Data, ent.Length);
-          rapidjson::Document dom = ReadJsonDocument(wrapper);
-          ValidateJsonDocument(dom, mMetaSchema.value());
+      rapidjson::MemoryStream wrapper(buffer.begin(), buffer.size());
+      rapidjson::Document dom = ReadJsonDocument(wrapper);
+      ValidateJsonDocument(dom, mMetaSchema.value());
 
-          // Make sure to use 'this' to resolve other schemas.
-          iter = mTable
-                   .emplace(std::piecewise_construct,
-                            std::forward_as_tuple(ent.Key),
-                            std::forward_as_tuple(dom, this))
-                   .first;
-
-          break;
-        }
+      // Make sure to use 'this' to resolve other schemas.
+      iter = mTable
+               .emplace(std::piecewise_construct,
+                        std::forward_as_tuple(key),
+                        std::forward_as_tuple(dom, this))
+               .first;
     }
 
     return (iter == mTable.end()) ? nullptr : &iter->second;
   }
 };
 
-RemoteSchemaProvider gProvider;
+SchemaProvider gProvider;
+
+}
+
+//===========================================================================//
+//=== API ===================================================================//
+//===========================================================================//
+
+namespace {
 
 ApiImage
-ReadImage(const rapidjson::Value& aKey, const rapidjson::Value& aValue)
+ReadApiImage(const rapidjson::Value& aKey, const rapidjson::Value& aValue)
 {
   ApiImage result;
   result.AspectRatio = atof(aKey.GetString());
@@ -173,7 +150,7 @@ ReadImage(const rapidjson::Value& aKey, const rapidjson::Value& aValue)
 }
 
 ApiFuzzyText
-ReadFuzzyText(const rapidjson::Value& aValue)
+ReadApiFuzzyText(const rapidjson::Value& aValue)
 {
   ApiFuzzyText result;
 
@@ -201,10 +178,10 @@ ReadFuzzyText(const rapidjson::Value& aValue)
 }
 
 ApiFuzzyTile
-ReadFuzzyTile(const rapidjson::Value& aValue)
+ReadApiFuzzyTile(const rapidjson::Value& aValue)
 {
   ApiFuzzyTile result;
-  result.Text = ReadFuzzyText(aValue["text"]);
+  result.Text = ReadApiFuzzyText(aValue["text"]);
 
   {
     const rapidjson::Value& table = aValue["image"];
@@ -212,29 +189,29 @@ ReadFuzzyTile(const rapidjson::Value& aValue)
 
     if (tile != table.MemberEnd())
       for (const auto& ent : tile->value.GetObject())
-        result.TileImages.emplace_back(ReadImage(ent.name, ent.value));
+        result.TileImages.emplace_back(ReadApiImage(ent.name, ent.value));
   }
 
   return result;
 }
 
 ApiFuzzySet
-ReadFuzzySet(const rapidjson::Value& aValue)
+ReadApiFuzzySet(const rapidjson::Value& aValue)
 {
   ApiFuzzySet result;
-  result.Text = ReadFuzzyText(aValue["text"]);
+  result.Text = ReadApiFuzzyText(aValue["text"]);
 
   for (const auto& ent : aValue["items"].GetArray())
-    result.Tiles.emplace_back(ReadFuzzyTile(ent));
+    result.Tiles.emplace_back(ReadApiFuzzyTile(ent));
 
   return result;
 }
 
-ApiFuzzySetRef
-ReadFuzzySetRef(const rapidjson::Value& aValue)
+ApiSetRef
+ReadApiSetRef(const rapidjson::Value& aValue)
 {
-  ApiFuzzySetRef result;
-  result.Text = ReadFuzzyText(aValue["text"]);
+  ApiSetRef result;
+  result.Text = ReadApiFuzzyText(aValue["text"]);
   result.ReferenceId = aValue["refId"].GetString();
   result.ReferenceType = aValue["refType"].GetString();
   return result;
@@ -242,35 +219,36 @@ ReadFuzzySetRef(const rapidjson::Value& aValue)
 
 }
 
-std::variant<ApiHome, ApiFuzzySet>
-ReadApi(std::istream& aInput)
+ApiHome
+ReadApiHome(std::istream& aInput)
 {
   rapidjson::IStreamWrapper wrapper(aInput);
   rapidjson::Document dom = ReadJsonDocument(wrapper);
+  auto schema = gProvider.GetRemoteDocument("schema-home.json", 0);
+  ValidateJsonDocument(dom, *schema);
 
-  auto data = dom.FindMember("data");
-  if (data != dom.MemberEnd() && data->value.MemberCount() > 0) {
-    const rapidjson::Value& key = data->value.MemberBegin()->name;
+  ApiHome result;
+  const rapidjson::Value& collection = dom["data"].MemberBegin()->value;
+  result.Text = ReadApiFuzzyText(collection["text"]);
 
-    if (strcmp(key.GetString(), "StandardCollection") == 0) {
-      ApiHome result;
-      const rapidjson::Value& collection = dom["data"].MemberBegin()->value;
-      result.Text = ReadFuzzyText(collection["text"]);
+  for (const auto& container : collection["containers"].GetArray()) {
+    const rapidjson::Value& set = container["set"];
 
-      for (const auto& container : collection["containers"].GetArray()) {
-        const rapidjson::Value& set = container["set"];
-
-        if (strcmp(set["type"].GetString(), "SetRef") == 0)
-          result.Containers.emplace_back(ReadFuzzySetRef(set));
-        else
-          result.Containers.emplace_back(ReadFuzzySet(set));
-      }
-
-      return result;
-    }
+    if (strcmp(set["type"].GetString(), "SetRef") == 0)
+      result.Containers.emplace_back(ReadApiSetRef(set));
+    else
+      result.Containers.emplace_back(ReadApiFuzzySet(set));
   }
 
-  const auto& schema = *gProvider.GetRemoteDocument("ref-schema.json", 0);
-  ValidateJsonDocument(dom, schema);
-  return ReadFuzzySet(dom["data"].MemberBegin()->value);
+  return result;
+}
+
+ApiFuzzySet
+ReadApiFuzzySet(std::istream& aInput)
+{
+  rapidjson::IStreamWrapper wrapper(aInput);
+  rapidjson::Document dom = ReadJsonDocument(wrapper);
+  auto schema = gProvider.GetRemoteDocument("schema-ref.json", 0);
+  ValidateJsonDocument(dom, *schema);
+  return ReadApiFuzzySet(dom["data"].MemberBegin()->value);
 }

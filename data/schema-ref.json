@@ -1,5 +1,5 @@
 {
-    "id": "http://allen-stubberud.github.io/ref-schema.json#",
+    "id": "http://allen-stubberud.github.io/schema-ref.json#",
     "$schema": "http://json-schema.org/draft-04/schema#",
     "description": "Schema for fuzzy sets",
     "type": "object",
@@ -7,7 +7,7 @@
         "data": {
             "type": "object",
             "additionalProperties": {
-                "$ref": "common-schema.json#/definitions/FuzzySet"
+                "$ref": "schema-common.json#/definitions/FuzzySet"
             },
             "maxProperties": 1,
             "minProperties": 1

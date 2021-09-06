@@ -1,5 +1,5 @@
 {
-    "id": "http://allen-stubberud.github.io/homef-schema.json#",
+    "id": "http://allen-stubberud.github.io/schema-home.json#",
     "$schema": "http://json-schema.org/draft-04/schema#",
     "description": "Schema for the home screen",
     "type": "object",
@@ -17,7 +17,7 @@
                             }
                         },
                         "text": {
-                            "$ref": "common-schema.json#/definitions/FuzzyText"
+                            "$ref": "schema-common.json#/definitions/FuzzyText"
                         },
                         "type": {
                             "type": "string",
@@ -56,7 +56,7 @@
                     "pattern": "^SetRef$"
                 },
                 "text": {
-                    "$ref": "#common-schema.json/definitions/FuzzyText"
+                    "$ref": "schema-common.json#/definitions/FuzzyText"
                 }
             },
             "required": [
@@ -72,7 +72,7 @@
                 "set": {
                     "oneOf": [
                         {
-                            "$ref": "common-schema.json#/definitions/FuzzySet"
+                            "$ref": "schema-common.json#/definitions/FuzzySet"
                         },
                         {
                             "$ref": "#/definitions/FuzzySetRef"

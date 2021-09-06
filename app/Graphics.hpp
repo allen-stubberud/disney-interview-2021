@@ -1,19 +1,12 @@
-#ifndef RENDER_HPP
-#define RENDER_HPP
+#ifndef GRAPHICS_HPP
+#define GRAPHICS_HPP
 
-/**
- * \file
- * \brief OpenGL rendering and transformation tree.
- */
-
-#include <functional>
-#include <vector>
+#include <optional>
 
 #include <GL/glew.h>
 #include <SDL.h>
 #include <glm/glm.hpp>
-
-#include "Signal.hpp"
+#include <sigc++/sigc++.h>
 
 class Texture
 {
@@ -40,23 +33,19 @@ public:
   void StrokeText(const char* aText);
 };
 
-struct RenderOptions
-{
-  bool BoundingBoxEnable;
-  glm::vec4 BoundingBoxColor;
-
-  RenderOptions();
-};
-
 class RenderNode
 {
   int mType;
-  RenderNode* mParent;
-  glm::mat4 mLocalTransform;
+  /// Optional link to parent node in tree.
+  RenderNode* mParentNode;
+
+  glm::vec2 mScale;
+  glm::vec2 mTranslate;
+
   mutable std::optional<SDL_FRect> mLocalBounds;
 
 public:
-  mutable Signal<> Visited;
+  mutable sigc::signal<void()> Visited;
 
   RenderNode(const RenderNode& aOther) = delete;
   RenderNode& operator=(const RenderNode& aOther) = delete;
@@ -67,12 +56,12 @@ public:
   const RenderNode* GetParent() const;
   RenderNode* GetParent();
 
-  const SDL_FRect& GetLocalBounds() const;
-  const glm::mat4& GetLocalTransform() const;
-  void SetLocalTransform(const glm::mat4& aNewValue);
+  const glm::vec2& GetScale() const;
+  const glm::vec2& GetTranslate() const;
+  void SetScale(const glm::vec2& aNewValue);
+  void SetTranslate(const glm::vec2& aNewValue);
 
-  void Draw(const RenderOptions& aOptions);
-  void Draw(const glm::mat4& aModelView, const RenderOptions& aOptions);
+  const SDL_FRect& GetLocalBounds() const;
 
 protected:
   static int AllocType();
@@ -82,18 +71,29 @@ protected:
   void Adopt(RenderNode& aOther);
   void Disown(RenderNode& aOther);
   void DirtyBounds();
-
-  virtual SDL_FRect ImplLocalBounds() const = 0;
-
-  virtual void ImplDraw(const glm::mat4& aModelView,
-                        const RenderOptions& aOptions) const = 0;
+  /// Does not include the base-class transformations.
+  virtual void ImplLocalBounds(SDL_FRect& aBuffer) const = 0;
 };
 
-struct Vertex
+class ClipNode : public RenderNode
 {
-  glm::vec4 Color;
-  glm::vec2 Location;
-  glm::vec2 TexCoord;
+  RenderNode* mChildNode;
+  SDL_FRect mClipRect;
+
+public:
+  static const int TypeId;
+
+  ClipNode();
+
+  const RenderNode* GetChild() const;
+  void SetChild(RenderNode* aNewValue = nullptr);
+
+  const SDL_FRect& GetClipRect() const;
+  void SetClipRect(const SDL_FRect& aNewValue);
+
+protected:
+  /// Does not include the base-class transformations.
+  void ImplLocalBounds(SDL_FRect& aBuffer) const override;
 };
 
 class GeomNode : public RenderNode
@@ -101,7 +101,14 @@ class GeomNode : public RenderNode
   GLenum mDrawMode;
   Texture* mTexture;
 
-  bool mGeometryLock;
+public:
+  struct Vertex
+  {
+    glm::vec4 Color;
+    glm::vec2 Location;
+    glm::vec2 TexCoord;
+  };
+
   std::vector<Vertex> mGeometry;
 
 public:
@@ -116,20 +123,17 @@ public:
   Texture* GetTexture();
   void SetTexture(Texture* aNewValue = nullptr);
 
+  using RenderNode::DirtyBounds;
   const std::vector<Vertex>& GetGeometry() const;
-  std::vector<Vertex>& LockGeometry();
-  void UnlockGeometry();
+  std::vector<Vertex>& GetGeometry();
 
 private:
-  SDL_FRect ImplLocalBounds() const override;
-
-  void ImplDraw(const glm::mat4& aModelView,
-                const RenderOptions& aOptions) const override;
+  /// Does not include the base-class transformations.
+  void ImplLocalBounds(SDL_FRect& aBuffer) const override;
 };
 
 class GroupNode : public RenderNode
 {
-  bool mChildrenLock;
   std::vector<std::reference_wrapper<RenderNode>> mChildren;
 
 public:
@@ -138,14 +142,12 @@ public:
   GroupNode();
 
   const decltype(mChildren)& GetChildren() const;
-  decltype(mChildren)& LockChildren();
-  void UnlockChildren();
+  void AddChild(RenderNode& aNode);
+  void RemoveChild(RenderNode& aNode);
 
 private:
-  SDL_FRect ImplLocalBounds() const override;
-
-  void ImplDraw(const glm::mat4& aModelView,
-                const RenderOptions& aOptions) const override;
+  /// Does not include the base-class transformations.
+  void ImplLocalBounds(SDL_FRect& aBuffer) const override;
 };
 
 class TextNode : public RenderNode
@@ -166,13 +168,16 @@ public:
   void SetTexture(Texture* aNewValue = nullptr);
 
 private:
-  SDL_FRect ImplLocalBounds() const override;
-
-  void ImplDraw(const glm::mat4& aModelView,
-                const RenderOptions& aOptions) const override;
+  /// Does not include the base-class transformations.
+  void ImplLocalBounds(SDL_FRect& aBuffer) const override;
 };
 
-SDL_FRect
-TransformBounds(const SDL_FRect& aBounds, const glm::mat4& aTransform);
+void
+Render(const RenderNode& aRoot, bool aBoundingBox = true);
+
+void
+InitGraphics();
+void
+FreeGraphics();
 
 #endif
