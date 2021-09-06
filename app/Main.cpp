@@ -94,8 +94,19 @@ main(int argc, char** argv)
                      1080,
                      SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
   if (!window) {
-    SDL_LogCritical(0, "SDL window error: %s", SDL_GetError());
-    return 1;
+    SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
+    SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4);
+    window = SDL_CreateWindow(argv[0],
+                              SDL_WINDOWPOS_CENTERED,
+                              SDL_WINDOWPOS_CENTERED,
+                              1920,
+                              1080,
+                              SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
+
+    if (!window) {
+      SDL_LogCritical(0, "SDL window error: %s", SDL_GetError());
+      return 1;
+    }
   }
 
   SDL_GLContext context = SDL_GL_CreateContext(window);

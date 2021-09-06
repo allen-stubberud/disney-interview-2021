@@ -122,7 +122,7 @@ private:
   struct State
   {
     std::unique_ptr<TempFile> File;
-    std::unique_ptr<Task> Task;
+    std::unique_ptr<Task> Job;
   };
 
   static size_t WriteProc(char* src, size_t a, size_t b, void* st)
@@ -135,7 +135,7 @@ private:
 
   void CompleteWithFailure(State& aState, std::string aMessage)
   {
-    auto task = aState.Task.release();
+    auto task = aState.Job.release();
 
     InvokeAsync([aMessage, task]() {
       task->Failed(std::move(aMessage));
@@ -146,7 +146,7 @@ private:
   void CompleteWithSuccess(State& aState)
   {
     auto file = aState.File.release();
-    auto task = aState.Task.release();
+    auto task = aState.Job.release();
 
     file->flush();
     file->seekg(0, std::ios_base::beg);
@@ -225,7 +225,7 @@ private:
     while (!save.empty()) {
       auto state = new State;
       state->File = std::make_unique<TempFile>();
-      state->Task = std::move(save.front());
+      state->Job = std::move(save.front());
 
       auto easy = curl_easy_init();
       curl_easy_setopt(easy, CURLOPT_FOLLOWLOCATION, 1L);
@@ -234,7 +234,7 @@ private:
       curl_easy_setopt(easy, CURLOPT_WRITEFUNCTION, WriteProc);
       curl_easy_setopt(easy, CURLOPT_SSL_OPTIONS, CURLSSLOPT_NATIVE_CA);
 
-      auto url = state->Task->ResourceLink.c_str();
+      auto url = state->Job->ResourceLink.c_str();
       curl_easy_setopt(easy, CURLOPT_URL, url);
       curl_multi_add_handle(mLibrary, easy);
 
