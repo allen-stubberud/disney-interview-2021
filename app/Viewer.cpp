@@ -70,6 +70,8 @@ public:
   /// Emitted whenever the texture aspect ratio is altered.
   mutable sigc::signal<void(float)> AspectRatioChanged;
 
+  mutable sigc::signal<void()> Failed;
+
   explicit TileWidget(ApiFuzzyTile aModel)
     : mModel(std::move(aModel))
     , mImageSelection(mModel.TileImages.end())
@@ -143,6 +145,7 @@ private:
       [&](std::string aMessage) {
         SDL_LogWarn(0, "%s", aMessage.c_str());
         mImageQuery.reset();
+        Failed();
       });
     mImageQuery->Finished.connect(
       //
@@ -170,6 +173,7 @@ class RowWidget
   sigc::connection mQueryTrigger;
 
   float mWindowStart;
+  float mRequestedAspectRatio;
   std::optional<int> mSelection;
   std::vector<std::unique_ptr<TileWidget>> mTiles;
 
@@ -246,6 +250,7 @@ public:
 
   void RequestAspectRatio(float aRatio)
   {
+    mRequestedAspectRatio = aRatio;
     for (std::unique_ptr<TileWidget>& tile : mTiles)
       tile->RequestAspectRatio(aRatio);
   }
@@ -272,8 +277,17 @@ private:
     for (ApiFuzzyTile& ent : aModel.Tiles) {
       mTiles.emplace_back(new TileWidget(std::move(ent)));
       mRootNode.AddChild(mTiles.back()->GetNode());
+      mTiles.back()->RequestAspectRatio(mRequestedAspectRatio);
       mTiles.back()->AspectRatioChanged.connect(
         [&](float) { Layout(mBounds); });
+      mTiles.back()->Failed.connect([&, ptr = mTiles.back().get()]() {
+        for (auto it = mTiles.begin(); it != mTiles.end(); ++it)
+          if (it->get() == ptr) {
+            mRootNode.RemoveChild(ptr->GetNode());
+            mTiles.erase(it);
+            Layout(mBounds);
+          }
+      });
     }
 
     Layout(mBounds);
