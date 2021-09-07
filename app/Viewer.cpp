@@ -69,7 +69,7 @@ class TileWidget
 public:
   /// Emitted whenever the texture aspect ratio is altered.
   mutable sigc::signal<void(float)> AspectRatioChanged;
-
+  /// Emitted whenever the download fails.
   mutable sigc::signal<void()> Failed;
 
   explicit TileWidget(ApiFuzzyTile aModel)
@@ -393,11 +393,19 @@ public:
 
       Layout(mBounds);
     } else {
-      mSelectRow.emplace(0);
-      mRows[0]->Select(0);
+      switch (aEvent.keysym.sym) {
+        case SDLK_LEFT:
+        case SDLK_RIGHT:
+        case SDLK_DOWN:
+        case SDLK_UP:
+          mSelectRow.emplace(0);
+          mRows[0]->Select(0);
+          break;
+      }
     }
   }
 
+  // TODO: rows only require re-layout when tiles change
   void Layout(const SDL_FRect& aBounds)
   {
     mBounds = aBounds;
